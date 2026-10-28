@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AI 智力榜</title>
+  <meta name="description" content="Artificial Analysis 智能指数中文速览：大模型智力排名、性价比与多维指标，每日自动更新。">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="AI 智力榜">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23007aff'/%3E%3Cpath d='M8 23V15M14 23V9M20 23V12M26 23V6' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css?v=9ed9ad8e">
+</head>
+<body>
+  <header class="large-title wrap">
+    <p class="lt-date" id="sync-date">&nbsp;</p>
+    <h1>AI 智力榜</h1>
+  </header>
+
+  <section class="wrap hero-group" aria-label="榜首">
+    <div id="leader" class="group" role="button" tabindex="0" aria-label="查看榜首模型详情"></div>
+    <p class="footnote">数据来自 Artificial Analysis 智能指数 · <span class="nw">更新于 <span id="sync-time">—</span></span></p>
+  </section>
+
+  <nav class="sticky" aria-label="筛选">
+    <div class="sticky-in">
+      <button class="nav-title" type="button" tabindex="-1" aria-hidden="true">AI 智力榜</button>
+      <div class="scope-tabs" role="tablist" aria-label="模型范围">
+        <button role="tab" data-scope="all" class="on" aria-selected="true">全部 <span id="cnt-all"></span></button>
+        <button role="tab" data-scope="open" aria-selected="false">开放权重 <span id="cnt-open"></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section id="rank" class="card">
+      <h2>智能排名</h2>
+      <div class="seg" id="rank-mode" role="group" aria-label="排序方式">
+        <button data-mode="ii" class="on">按分数</button>
+        <button data-mode="date">按发布时间</button>
+      </div>
+      <div id="rank-chart" class="rank-chart"></div>
+      <button id="rank-more" class="more-btn" type="button"></button>
+      <p class="desc">前 30 名，同一模型只取得分最高的思考档位。点按查看详情。</p>
+    </section>
+
+    <section id="cost" class="card">
+      <div class="h-row">
+        <h2>智能成本</h2>
+        <button class="link-btn" id="cost-zoom" type="button">放大</button>
+      </div>
+      <div class="chips" id="cost-vendors" aria-label="按厂商筛选"></div>
+      <div class="legend">
+        <span><i class="lg-area"></i>高性价比区域</span>
+        <span><i class="lg-line"></i>全局最优前沿</span>
+        <span id="lg-vendor" hidden></span>
+        <span class="lg-size"><i class="lg-dots"><em></em><em></em></i>点越大越慢</span>
+      </div>
+      <div id="cost-chart" class="chart-box"></div>
+      <p class="desc" id="cost-desc"></p>
+    </section>
+
+    <section id="table" class="card">
+      <div class="h-row">
+        <h2>多维分析</h2>
+        <span class="count" id="table-count"></span>
+      </div>
+      <label class="select">
+        <span>厂商</span>
+        <select id="table-vendor"></select>
+      </label>
+      <div class="table-wrap"><table id="grid"></table></div>
+      <p class="desc">点列名排序，左右滑动查看更多指标。</p>
+    </section>
+
+    <section class="card about">
+      <details>
+        <summary>指标说明</summary>
+        <dl>
+          <dt>AA 智能指数</dt><dd>Artificial Analysis 用十多项独立评测（编程、科学推理、智能体任务、长上下文、知识可靠性等）综合算出的分数，越高越聪明。</dd>
+          <dt>思考档位</dt><dd>同一模型可设置不同的推理强度，如 max / xhigh / high / low。档位越高通常越聪明，但更慢更贵。</dd>
+          <dt>每任务成本</dt><dd>跑完整套智能指数评测时，平均每道题花费的 API 费用（美元）。它同时反映了单价和模型“想得多不多”。</dd>
+          <dt>高性价比区域</dt><dd>每任务成本低于中位数、智能指数高于中位数的区域。</dd>
+          <dt>全局最优前沿</dt><dd>帕累托前沿：在同等或更低成本下，没有别的模型比它更聪明。</dd>
+          <dt>输出速度</dt><dd>开始输出后每秒生成的 token 数（中位数）。</dd>
+          <dt>首字延迟</dt><dd>从发出请求到收到第一个 token 的时间。推理模型会先“思考”，所以通常更长。</dd>
+          <dt>总响应时间</dt><dd>一次典型请求从发出到完整返回的时间。散点图里点越大，总响应时间越长。</dd>
+          <dt>知识可靠性</dt><dd>AA-Omniscience 指数：答对加分、答错扣分、承认不知道不扣分，衡量模型会不会“一本正经地胡说”。</dd>
+        </dl>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    数据来自 <a href="https://artificialanalysis.ai/" target="_blank" rel="noopener">Artificial Analysis</a>，本站为非官方中文整理，每日自动更新。
+  </footer>
+
+  <div id="tip" class="tip" hidden></div>
+
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-bar">
+        <button class="sheet-close" data-close aria-label="关闭" type="button">
+          <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="sheet-body"></div>
+    </div>
+  </div>
+
+  <div id="zoom" class="zoom" hidden role="dialog" aria-modal="true" aria-label="智能成本 · 放大">
+    <div class="zoom-bar">
+      <span class="zoom-t"><b>智能成本</b><small class="zoom-hint">左右滑动 · 横屏更清楚</small></span>
+      <button class="link-btn" id="zoom-close" type="button">完成</button>
+    </div>
+    <div class="zoom-scroll"><div id="zoom-chart"></div></div>
+  </div>
+
+  <script>
+    window.UI = {
+      rankAxis: false,
+      leaderCells: true,
+      countFmt: function (n) { return n; },
+      headDate: function (d) {
+        return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric', weekday: 'long' }).format(d);
+      },
+      moreText: function (open, n) { return open ? '收起' : '显示全部 ' + n + ' 名'; }
+    };
+  </script>
+  <script src="app.js?v=9ed9ad8e"></script>
+</body>
+</html>
