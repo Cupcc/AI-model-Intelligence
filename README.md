@@ -2,6 +2,16 @@
 
 Artificial Analysis 智能指数的中文速览网页，主要给手机看。纯静态页面，放在 GitHub Pages 上，GitHub Actions 每 6 小时自动更新一次数据。
 
+**在线访问：[AI 智力榜 →](https://cupcc.github.io/AI-model-Intelligence/)**
+
+## 页面预览
+
+手机端实际页面截图，支持浅色与深色模式。实时数据请以在线网站为准。
+
+| 智能排名 | 智能成本 | 模型详情 · 深色模式 |
+| :---: | :---: | :---: |
+| <img src="assets/previews/ranking.png" alt="AI 智力榜手机端首页，展示榜首模型和智能排名" width="250"> | <img src="assets/previews/cost.png" alt="智能成本散点图，展示模型成本与智能指数及最优前沿" width="250"> | <img src="assets/previews/model-detail.png" alt="深色模式下的模型详情，展示价格、速度、上下文和评测分数" width="250"> |
+
 ## 页面内容
 
 - **智能排名**：AA 智能指数前 30 名（同一模型只保留最高分的思考档位），可按发布时间排序
@@ -14,6 +24,7 @@ Artificial Analysis 智能指数的中文速览网页，主要给手机看。纯
 ## 目录
 
 ```
+assets/previews/      README 页面预览图
 docs/                 网页（GitHub Pages 发布这个目录）
   index.html
   style.css
@@ -44,5 +55,6 @@ python3 -m http.server 8000 -d docs        # 打开 http://localhost:8000
 2. 仓库 Settings → Secrets and variables → Actions → New repository secret：名字填 `AA_API_KEY`，值填你的 key
 3. Settings → Pages → Build and deployment：Source 选 “Deploy from a branch”，Branch 选 `main`，目录选 `/docs`
 4. 到 Actions 页面手动运行一次 “更新数据”，确认能成功
+5. 仓库首页 About → 设置 → Website 填入部署地址（本仓库为 `https://cupcc.github.io/AI-model-Intelligence/`），方便读者直接访问
 
 数据版权归 [Artificial Analysis](https://artificialanalysis.ai/) 所有，本站为非官方中文整理，页面已注明来源。
