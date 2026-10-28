@@ -13,18 +13,21 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23007aff'/%3E%3Cpath d='M8 23V15M14 23V9M20 23V12M26 23V6' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="style.css?v=a0689ce4">
+  <link rel="stylesheet" href="style.css?v=bafdf46a">
 </head>
 <body>
-  <header class="large-title wrap">
-    <p class="lt-date" id="sync-date">&nbsp;</p>
-    <h1>AI 智力榜</h1>
-  </header>
+  <div class="overview wrap">
+    <header class="large-title wrap">
+      <p class="lt-date" id="sync-date">&nbsp;</p>
+      <h1>AI 智力榜</h1>
+      <p class="desktop-intro">看懂模型能力，找到合适的成本。<br>排名、性价比与多维表现，一览比较。</p>
+    </header>
 
-  <section class="wrap hero-group" aria-label="榜首">
-    <div id="leader" class="group" role="button" tabindex="0" aria-label="查看榜首模型详情"></div>
-    <p class="footnote">数据来自 Artificial Analysis 智能指数 · <span class="nw">更新于 <span id="sync-time">—</span></span></p>
-  </section>
+    <section class="wrap hero-group" aria-label="榜首">
+      <div id="leader" class="group" role="button" tabindex="0" aria-label="查看榜首模型详情"></div>
+      <p class="footnote">数据来自 Artificial Analysis 智能指数 · <span class="nw">更新于 <span id="sync-time">—</span></span></p>
+    </section>
+  </div>
 
   <nav class="sticky" aria-label="筛选">
     <div class="sticky-in">
@@ -32,6 +35,11 @@
       <div class="scope-tabs" role="tablist" aria-label="模型范围">
         <button role="tab" data-scope="all" class="on" aria-selected="true">全部 <span id="cnt-all"></span></button>
         <button role="tab" data-scope="open" aria-selected="false">开放权重 <span id="cnt-open"></span></button>
+      </div>
+      <div class="section-nav" aria-label="页面分区">
+        <a href="#rank" class="on" aria-current="location">智能排名</a>
+        <a href="#cost">智能成本</a>
+        <a href="#table">多维分析</a>
       </div>
     </div>
   </nav>
@@ -94,8 +102,8 @@
         <span>厂商</span>
         <select id="table-vendor"></select>
       </label>
-      <div class="table-wrap"><table id="grid"></table></div>
-      <p class="desc">点列名排序，左右滑动查看更多指标。</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="模型多维指标，可横向滚动"><table id="grid"></table></div>
+      <p class="desc">点击列名排序，横向滚动查看更多指标。</p>
     </section>
 
     <section class="card about">
@@ -136,7 +144,7 @@
 
   <div id="zoom" class="zoom" hidden role="dialog" aria-modal="true" aria-label="智能成本 · 放大">
     <div class="zoom-bar">
-      <span class="zoom-t"><b>智能成本</b><small class="zoom-hint">左右滑动 · 横屏更清楚</small></span>
+      <span class="zoom-t"><b>智能成本</b><small class="zoom-hint"><span class="mobile-zoom-hint">左右滑动 · 横屏更清楚</span><span class="desktop-zoom-hint">悬停查看指标 · 点击模型查看详情 · Esc 关闭</span></small></span>
       <button class="link-btn" id="zoom-close" type="button">完成</button>
     </div>
     <div class="zoom-scroll"><div id="zoom-chart"></div></div>
@@ -153,6 +161,6 @@
       moreText: function (open, n) { return open ? '收起' : '显示全部 ' + n + ' 名'; }
     };
   </script>
-  <script src="app.js?v=a0689ce4"></script>
+  <script src="app.js?v=bafdf46a"></script>
 </body>
 </html>

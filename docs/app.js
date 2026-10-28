@@ -559,10 +559,12 @@
       el('span', { class: 'k', style: 'background:' + markColor(m.color) }), m.short
     ]);
     tip.hidden = false;
+    var rect = tip.getBoundingClientRect();
     var x = evt.clientX + 14, y = evt.clientY + 14;
-    if (x + 240 > window.innerWidth) x = evt.clientX - 250;
-    tip.style.left = x + 'px';
-    tip.style.top = y + 'px';
+    if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - 14;
+    if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - 14;
+    tip.style.left = Math.max(8, x) + 'px';
+    tip.style.top = Math.max(8, y) + 'px';
   }
   function hideTip() { $('tip').hidden = true; }
 
@@ -614,12 +616,14 @@
         class: on ? 'on' : '', scope: 'col',
         'aria-sort': on ? (dir > 0 ? 'ascending' : 'descending') : 'none',
         onclick: function () {
+          var keepFocus = tbl.contains(document.activeElement);
           if (state.sortKey === c.k) state.sortDir = -state.sortDir;
           else { state.sortKey = c.k; state.sortDir = c.dir; }
           savePreferences();
           renderTable();
+          if (keepFocus) tbl.querySelectorAll('th button')[COLS.indexOf(c)].focus({ preventScroll: true });
         }
-      }, [c.label, el('span', { class: 'arr', text: on ? (dir > 0 ? '↑' : '↓') : '↕' })]));
+      }, el('button', { type: 'button' }, [c.label, el('span', { class: 'arr', 'aria-hidden': 'true', text: on ? (dir > 0 ? '↑' : '↓') : '↕' })])));
     });
     tbl.appendChild(el('thead', null, tr));
     var tb = el('tbody');
@@ -629,7 +633,7 @@
       COLS.forEach(function (c, i) {
         if (i === 0) {
           r.appendChild(el('td', { style: '--c:' + markColor(m.color) }, [
-            el('b', { text: splitName(m.short).base }),
+            el('button', { type: 'button', class: 'model-detail', 'aria-label': '查看 ' + m.short + ' 详情' }, el('b', { text: splitName(m.short).base })),
             el('span', { class: 'sub' }, [
               splitName(m.short).tier ? el('em', { class: 'tier', 'data-t': splitName(m.short).tier, text: splitName(m.short).tier }) : null,
               m.open ? el('span', { class: 'tag open', text: '开放' }) : null,
@@ -703,7 +707,8 @@
     sheet.querySelector('.sheet-panel').scrollTop = 0;
     sheet.querySelector('.sheet-panel').classList.remove('scrolled');
     document.body.classList.add('locked');
-    if (!reopen) pushLayer('sheet');
+    hideTip();
+    if (!reopen) { pushLayer('sheet'); focusLayer('sheet', '.sheet-close'); }
   }
   // 关闭时先播放收起动画（有 .sheet.out 样式的设计才有动画），再隐藏
   var sheetTimer;
@@ -721,6 +726,7 @@
       sheet.classList.remove('out');
       resetPanel();
       syncLock();
+      restoreLayerFocus('sheet');
     }, reduceMotion.matches ? 0 : 240);
   }
 
@@ -780,16 +786,41 @@
     document.body.classList.add('locked');
     drawZoom();
     pushLayer('zoom');
+    hideTip();
+    focusLayer('zoom', '#zoom-close');
   }
   function drawZoom() {
     // 竖屏手机：固定高度、加宽，左右滑动查看；横屏/电脑：铺满
-    var h = Math.max(Math.min(window.innerHeight - 110, 600), 320);
-    var w = Math.max(window.innerWidth - 24, Math.round(h * 1.6));
+    var scroll = document.querySelector('.zoom-scroll');
+    var style = getComputedStyle(scroll);
+    var h = Math.max(Math.min(scroll.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom), 760), 320);
+    var w = Math.max(scroll.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight), Math.round(h * 1.6));
     drawScatter($('zoom-chart'), costModels(), { width: w, height: h, dense: true });
   }
-  function closeZoom() { $('zoom').hidden = true; syncLock(); }
+  function closeZoom() { $('zoom').hidden = true; hideTip(); syncLock(); restoreLayerFocus('zoom'); }
   function syncLock() {
     if ($('sheet').hidden && $('zoom').hidden) document.body.classList.remove('locked');
+  }
+
+  var layerFocus = {};
+  function focusLayer(id, selector) {
+    layerFocus[id] = document.activeElement;
+    $(id).querySelector(selector).focus({ preventScroll: true });
+  }
+  function restoreLayerFocus(id) {
+    var target = layerFocus[id];
+    if (target && target.isConnected) target.focus({ preventScroll: true });
+    delete layerFocus[id];
+  }
+  function trapLayerFocus(e) {
+    if (e.key !== 'Tab') return;
+    var layer = sheetOpen() ? $('sheet') : !$('zoom').hidden ? $('zoom') : null;
+    if (!layer) return;
+    var items = Array.prototype.filter.call(layer.querySelectorAll('button, a[href], input, select, [tabindex="0"]'), function (n) { return !n.disabled && n.getClientRects().length; });
+    var first = items[0], last = items[items.length - 1];
+    if (!first) return;
+    if (e.shiftKey && (document.activeElement === first || !layer.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !layer.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
   }
 
   // 让手机“返回”键/手势关闭弹层
@@ -931,26 +962,41 @@
     $('cost-zoom').addEventListener('click', openZoom);
     $('zoom-close').addEventListener('click', requestClose);
     document.querySelectorAll('[data-close]').forEach(function (n) { n.addEventListener('click', requestClose); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') requestClose(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && (sheetOpen() || !$('zoom').hidden)) requestClose(); trapLayerFocus(e); });
     bindSheetDrag();
     bindStuck();
 
     // 分区导航高亮
     var links = Array.prototype.slice.call(document.querySelectorAll('.section-nav a'));
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + en.target.id); });
+    function setSectionNav(active) {
+      links.forEach(function (a) {
+        a.classList.toggle('on', a === active);
+        if (a === active) a.setAttribute('aria-current', 'location');
+        else a.removeAttribute('aria-current');
       });
-    }, { rootMargin: '-120px 0px -55% 0px' });
-    ['rank', 'cost', 'table'].forEach(function (id) { io.observe($(id)); });
+    }
+    function updateSectionNav() {
+      var boundary = document.querySelector('.sticky').getBoundingClientRect().bottom + 40;
+      var passed = links.filter(function (a) { return document.querySelector(a.getAttribute('href')).getBoundingClientRect().top <= boundary; });
+      var latest = passed.length ? document.querySelector(passed[passed.length - 1].getAttribute('href')).getBoundingClientRect().top : -Infinity;
+      // PC 上排名与成本同一行，保留用户当前选中的分区。
+      var row = passed.filter(function (a) { return Math.abs(document.querySelector(a.getAttribute('href')).getBoundingClientRect().top - latest) < 2; });
+      setSectionNav(row.find(function (a) { return a.classList.contains('on'); }) || row[0] || links[0]);
+    }
+    links.forEach(function (a) { a.addEventListener('click', function () { setSectionNav(a); }); });
+    var navFrame;
+    if (links.length) window.addEventListener('scroll', function () {
+      if (navFrame) return;
+      navFrame = requestAnimationFrame(function () { navFrame = null; updateSectionNav(); });
+    }, { passive: true });
 
-    var lastW = window.innerWidth, t;
+    var lastW = window.innerWidth, lastH = window.innerHeight, t;
     window.addEventListener('resize', function () {
-      if (window.innerWidth === lastW) return;
+      if (window.innerWidth === lastW && window.innerHeight === lastH) return;
       lastW = window.innerWidth;
+      lastH = window.innerHeight;
       clearTimeout(t);
-      t = setTimeout(function () { renderCost(); if (!$('zoom').hidden) drawZoom(); }, 150);
+      t = setTimeout(function () { renderCost(); if (!$('zoom').hidden) drawZoom(); if (links.length) updateSectionNav(); }, 150);
     });
     darkMq.addEventListener && darkMq.addEventListener('change', function () { renderModelFilter(); renderAll(); });
   }

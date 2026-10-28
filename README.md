@@ -1,6 +1,6 @@
 # AI 智力榜
 
-Artificial Analysis 智能指数的中文速览网页，主要给手机看。纯静态页面，放在 GitHub Pages 上，GitHub Actions 每 6 小时自动更新一次数据。
+Artificial Analysis 智能指数的中文速览网页，适配手机、平板和 PC。纯静态页面，放在 GitHub Pages 上，GitHub Actions 每 6 小时自动更新一次数据。
 
 **在线访问：[AI 智力榜 →](https://cupcc.github.io/AI-model-Intelligence/)**
 
@@ -20,6 +20,7 @@ Artificial Analysis 智能指数的中文速览网页，主要给手机看。纯
 - 点任意模型可以看详情：各项评测分数（中文名称）、价格、速度等
 - “全部模型 / 开放权重”切换，支持深色模式
 - **模型筛选与记忆**：搜索模型或厂商、多选要显示的模型，联动排名、成本图和分析表；自动在当前浏览器保存模型选择、范围、厂商和排序，下次打开时恢复，可一键恢复全部
+- **PC 布局**：1024px 起使用宽屏概览、排名与成本双栏、多列模型筛选和宽表格，支持分区导航、鼠标悬停、键盘排序与居中详情弹窗
 - 界面是 iOS 原生风格（设计稿在 `design/native/`，用 `python3 scripts/ship_design.py` 发布到 `docs/`）
 
 ## 目录
