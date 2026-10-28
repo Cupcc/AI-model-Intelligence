@@ -38,6 +38,27 @@
   </nav>
 
   <main>
+    <details id="model-filter" class="model-filter">
+      <summary>
+        <span>筛选模型</span>
+        <span id="model-filter-count" class="filter-count">全部模型</span>
+      </summary>
+      <div class="filter-body">
+        <label class="filter-search">
+          <span class="sr-only">搜索模型或厂商</span>
+          <input id="model-search" type="search" placeholder="搜索模型或厂商" autocomplete="off" spellcheck="false" aria-controls="model-options">
+        </label>
+        <div class="filter-actions">
+          <button id="models-select" class="link-btn" type="button">全选</button>
+          <button id="models-clear" class="link-btn" type="button">清空</button>
+          <button id="models-reset" class="link-btn" type="button">恢复全部</button>
+        </div>
+        <div id="model-options" class="model-options" role="group" aria-label="选择要显示的模型"></div>
+        <p id="model-filter-status" class="filter-status" role="status" aria-live="polite"></p>
+        <p id="model-filter-memory" class="hint">选择会自动保存在此浏览器，下次打开时恢复。同一模型的思考档位合并选择。</p>
+      </div>
+    </details>
+
     <section id="rank" class="card">
       <h2>智能排名</h2>
       <div class="seg" id="rank-mode" role="group" aria-label="排序方式">
@@ -57,7 +78,7 @@
       <div class="chips" id="cost-vendors" aria-label="按厂商筛选"></div>
       <div class="legend">
         <span><i class="lg-area"></i>高性价比区域</span>
-        <span><i class="lg-line"></i>全局最优前沿</span>
+        <span><i class="lg-line"></i><span id="cost-frontier-label">全局最优前沿</span></span>
         <span id="lg-vendor" hidden></span>
         <span class="lg-size"><i class="lg-dots"><em></em><em></em></i>点越大越慢</span>
       </div>

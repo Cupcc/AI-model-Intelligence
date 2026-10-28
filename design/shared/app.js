@@ -51,8 +51,40 @@
   var DATA = null;
   var state = {
     scope: 'all', rankMode: 'ii', rankExpanded: false,
-    costVendor: '', tableVendor: '', sortKey: 'ii', sortDir: -1
+    costVendor: '', tableVendor: '', sortKey: 'ii', sortDir: -1,
+    selectedFamilies: null // null 为全部（含将来新增模型），空数组为明确不选
   };
+  var PREFERENCES_KEY = 'ai-intelligence.preferences.v1';
+  var preferencesSaved = true;
+
+  function restorePreferences() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY));
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return;
+      if (saved.scope === 'all' || saved.scope === 'open') state.scope = saved.scope;
+      if (saved.rankMode === 'ii' || saved.rankMode === 'date') state.rankMode = saved.rankMode;
+      if (typeof saved.rankExpanded === 'boolean') state.rankExpanded = saved.rankExpanded;
+      ['costVendor', 'tableVendor'].forEach(function (key) {
+        if (typeof saved[key] === 'string') state[key] = saved[key];
+      });
+      if (COLS.some(function (c) { return c.k === saved.sortKey; })) state.sortKey = saved.sortKey;
+      if (saved.sortDir === 1 || saved.sortDir === -1) state.sortDir = saved.sortDir;
+      if (Array.isArray(saved.selectedFamilies) && saved.selectedFamilies.every(function (f) { return typeof f === 'string'; })) {
+        state.selectedFamilies = Array.from(new Set(saved.selectedFamilies));
+      }
+    } catch (err) {
+      // 损坏的偏好回退到默认值；存储不可用时仍可正常筛选。
+      preferencesSaved = err.name === 'SyntaxError';
+    }
+  }
+
+  function savePreferences() {
+    try {
+      localStorage.setItem(PREFERENCES_KEY, JSON.stringify(state));
+      preferencesSaved = true;
+    } catch (err) { preferencesSaved = false; }
+    updateModelFilter();
+  }
   var darkMq = window.matchMedia('(prefers-color-scheme: dark)');
   // 每套设计可在页面里设置 window.UI 覆盖默认行为
   var UI = Object.assign({
@@ -160,8 +192,74 @@
   }
 
   // ---------- 数据切片 ----------
-  function scoped() {
+  function scopeModels() {
     return DATA.models.filter(function (m) { return state.scope === 'all' || m.open; });
+  }
+  function scoped() {
+    var selected = state.selectedFamilies === null ? null : new Set(state.selectedFamilies);
+    return scopeModels().filter(function (m) { return selected === null || selected.has(m.family); });
+  }
+
+  // ---------- 模型筛选 ----------
+  function modelFamilies() {
+    var best = new Map();
+    scopeModels().forEach(function (m) {
+      if (!best.has(m.family) || m.ii > best.get(m.family).ii) best.set(m.family, m);
+    });
+    return Array.from(best.values()).sort(function (a, b) { return b.ii - a.ii || a.family.localeCompare(b.family); });
+  }
+  function matchingFamilies() {
+    var query = $('model-search').value.trim().toLocaleLowerCase();
+    return modelFamilies().filter(function (m) {
+      return [m.family, m.short, m.name, m.creator, creatorName(m.creator)].join(' ').toLocaleLowerCase().indexOf(query) >= 0;
+    });
+  }
+  function updateModelFilter() {
+    if (!$('model-filter')) return;
+    var families = modelFamilies();
+    var count = families.filter(function (m) {
+      return state.selectedFamilies === null || state.selectedFamilies.indexOf(m.family) >= 0;
+    }).length;
+    setText('model-filter-count', state.selectedFamilies === null ? '全部 ' + families.length + ' 款' : '已选 ' + count + ' / ' + families.length + ' 款');
+    setText('model-filter-status', '当前范围已选 ' + count + ' 款模型，排名、成本图和分析表同步更新。');
+    setText('model-filter-memory', preferencesSaved
+      ? '选择会自动保存在此浏览器，下次打开时恢复。同一模型的思考档位合并选择。'
+      : '当前浏览器无法保存选择，关闭后可能需要重新筛选。同一模型的思考档位合并选择。');
+  }
+  function changeModelSelection(families, checked) {
+    // 用完整数据初始化，切换开放权重范围不会丢掉闭源模型的选择。
+    var selected = new Set(state.selectedFamilies === null
+      ? DATA.models.map(function (m) { return m.family; }) : state.selectedFamilies);
+    families.forEach(function (family) { if (checked) selected.add(family); else selected.delete(family); });
+    state.selectedFamilies = Array.from(selected);
+    savePreferences();
+    renderAll();
+  }
+  function renderModelFilter() {
+    var box = $('model-options');
+    if (!box) return;
+    var list = matchingFamilies();
+    var searching = !!$('model-search').value.trim();
+    setText('models-select', searching ? '全选搜索结果' : '全选');
+    setText('models-clear', searching ? '清空搜索结果' : '清空');
+    $('models-select').disabled = $('models-clear').disabled = !list.length;
+    clear(box);
+    list.forEach(function (m) {
+      box.appendChild(el('label', { class: 'model-option' }, [
+        el('input', {
+          type: 'checkbox', value: m.family,
+          checked: state.selectedFamilies === null || state.selectedFamilies.indexOf(m.family) >= 0,
+          onchange: function (e) { changeModelSelection([m.family], e.target.checked); }
+        }),
+        el('span', { class: 'model-option-name' }, [
+          el('b', { text: m.family }),
+          el('small', null, [el('i', { style: 'background:' + markColor(m.color) }), creatorName(m.creator)])
+        ]),
+        el('span', { class: 'model-option-score', text: fmtII(m.ii), 'aria-label': '最高智能指数 ' + fmtII(m.ii) })
+      ]));
+    });
+    if (!list.length) box.appendChild(el('p', { class: 'empty-state', text: '没有找到匹配的模型，试试其他名称或厂商。' }));
+    updateModelFilter();
   }
   function vendorCounts(list) {
     var map = {};
@@ -226,6 +324,7 @@
 
     var box = $('rank-chart');
     clear(box);
+    if (!shown.length) box.appendChild(el('p', { class: 'empty-state', text: '当前没有选中的模型，请在「筛选模型」中选择或恢复全部。' }));
     shown.forEach(function (m) {
       var pct = Math.max(0, (m.ii - UI.rankMin) / (maxX - UI.rankMin)) * 100;
       var rk = rankOf.get(m);
@@ -272,19 +371,19 @@
   function renderCost() {
     var list = costModels();
     var total = scoped().length;
+    setText('cost-frontier-label', state.selectedFamilies === null ? '全局最优前沿' : '所选模型最优前沿');
     $('cost-desc').textContent = list.length + ' 个模型有成本数据（共 ' + total + '）。越靠左上越划算。';
     var vendors = vendorCounts(list);
-    if (state.costVendor && !vendors.some(function (v) { return v.name === state.costVendor; })) state.costVendor = '';
     var chips = $('cost-vendors');
     clear(chips);
     chips.appendChild(el('button', {
-      class: 'chip' + (state.costVendor ? '' : ' on'), type: 'button',
-      onclick: function () { state.costVendor = ''; renderCost(); }
+      class: 'chip' + (vendors.some(function (v) { return v.name === state.costVendor; }) ? '' : ' on'), type: 'button',
+      onclick: function () { state.costVendor = ''; savePreferences(); renderCost(); }
     }, ['全部 ', el('em', { text: String(list.length) })]));
     vendors.forEach(function (v) {
       chips.appendChild(el('button', {
         class: 'chip' + (state.costVendor === v.name ? ' on' : ''), type: 'button',
-        onclick: function () { state.costVendor = state.costVendor === v.name ? '' : v.name; renderCost(); }
+        onclick: function () { state.costVendor = state.costVendor === v.name ? '' : v.name; savePreferences(); renderCost(); }
       }, [el('i', { style: 'background:' + markColor(v.color) }), creatorName(v.name) + ' ', el('em', { text: String(v.count) })]));
     });
     var vl = $('lg-vendor');
@@ -305,7 +404,7 @@
     var W = opt.width, H = opt.height;
     var M = { l: 34, r: 14, t: 26, b: 46 };
     var pw = W - M.l - M.r, ph = H - M.t - M.b;
-    var vendor = state.costVendor;
+    var vendor = list.some(function (m) { return m.creator === state.costVendor; }) ? state.costVendor : '';
 
     var logs = list.map(function (m) { return Math.log10(m.costTask); });
     var x0 = Math.min.apply(null, logs) - 0.2, x1 = Math.max.apply(null, logs) + 0.25;
@@ -485,16 +584,16 @@
   function renderTable() {
     var base = scoped();
     var vendors = vendorCounts(base);
-    if (state.tableVendor && !vendors.some(function (v) { return v.name === state.tableVendor; })) state.tableVendor = '';
+    var vendor = vendors.some(function (v) { return v.name === state.tableVendor; }) ? state.tableVendor : '';
     var sel = $('table-vendor');
     clear(sel);
     sel.appendChild(el('option', { value: '', text: '全部厂商（' + base.length + '）' }));
     vendors.forEach(function (v) {
       sel.appendChild(el('option', { value: v.name, text: creatorName(v.name) + '（' + v.count + '）' }));
     });
-    sel.value = state.tableVendor;
+    sel.value = vendor;
 
-    var rows = base.filter(function (m) { return !state.tableVendor || m.creator === state.tableVendor; });
+    var rows = base.filter(function (m) { return !vendor || m.creator === vendor; });
     $('table-count').textContent = rows.length + ' / ' + DATA.models.length;
     var k = state.sortKey, dir = state.sortDir;
     rows.sort(function (a, b) {
@@ -517,12 +616,14 @@
         onclick: function () {
           if (state.sortKey === c.k) state.sortDir = -state.sortDir;
           else { state.sortKey = c.k; state.sortDir = c.dir; }
+          savePreferences();
           renderTable();
         }
       }, [c.label, el('span', { class: 'arr', text: on ? (dir > 0 ? '↑' : '↓') : '↕' })]));
     });
     tbl.appendChild(el('thead', null, tr));
     var tb = el('tbody');
+    if (!rows.length) tb.appendChild(el('tr', null, el('td', { colspan: COLS.length, class: 'empty-state', text: '当前没有选中的模型，请在「筛选模型」中选择或恢复全部。' })));
     rows.forEach(function (m) {
       var r = el('tr', { onclick: function () { openDetail(m); } });
       COLS.forEach(function (c, i) {
@@ -726,7 +827,21 @@
     box.appendChild(track);
   }
 
-  function renderAll() { renderTicker(); renderLeader(); renderRank(); renderCost(); renderTable(); }
+  function renderAll() {
+    document.querySelectorAll('.scope-tabs button').forEach(function (b) {
+      var on = b.getAttribute('data-scope') === state.scope;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on);
+    });
+    document.querySelectorAll('#rank-mode button').forEach(function (b) {
+      var on = b.getAttribute('data-mode') === state.rankMode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on);
+    });
+    updateModelFilter();
+    renderTicker(); renderLeader(); renderRank(); renderCost(); renderTable();
+    if (!$('zoom').hidden) drawZoom();
+  }
 
   // ---------- 可选：榜首卡片（页面里有 #leader 才渲染） ----------
   function renderLeader() {
@@ -734,9 +849,12 @@
     if (!box) return;
     var list = scoped().slice().sort(function (a, b) { return b.ii - a.ii; });
     var m = list[0];
+    box.hidden = !m;
+    box.onclick = null;
+    box.onkeydown = null;
+    clear(box);
     if (!m) return;
     var second = list.find(function (x) { return x.family !== m.family; });
-    clear(box);
     box.style.setProperty('--vc', markColor(m.color));
     box.onclick = function () { openDetail(m); };
     box.onkeydown = function (e) {
@@ -758,7 +876,7 @@
       el('span', { class: 'ld-m ld-date' }, [el('span', { class: 'ld-sep', text: ' · ' }), fmtDate(m.release) + ' 发布'])
     ];
     append(box, [
-      el('span', { class: 'ld-kicker', text: state.scope === 'open' ? '开放权重第一' : '当前第一' }),
+      el('span', { class: 'ld-kicker', text: state.selectedFamilies !== null ? '所选模型第一' : state.scope === 'open' ? '开放权重第一' : '当前第一' }),
       el('span', { class: 'ld-creator' }, [el('i'), creatorName(m.creator)]),
       el('strong', { class: 'ld-name' }, [splitName(m.short).base,
         splitName(m.short).tier ? el('em', { class: 'tier', 'data-t': splitName(m.short).tier, text: splitName(m.short).tier }) : null]),
@@ -771,26 +889,45 @@
     document.querySelectorAll('.scope-tabs button').forEach(function (b) {
       b.addEventListener('click', function () {
         state.scope = b.getAttribute('data-scope');
-        document.querySelectorAll('.scope-tabs button').forEach(function (x) {
-          x.classList.toggle('on', x === b);
-          x.setAttribute('aria-selected', x === b);
-        });
+        savePreferences();
+        renderModelFilter();
         renderAll();
       });
     });
     document.querySelectorAll('#rank-mode button').forEach(function (b) {
       b.addEventListener('click', function () {
         state.rankMode = b.getAttribute('data-mode');
-        document.querySelectorAll('#rank-mode button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        savePreferences();
+        document.querySelectorAll('#rank-mode button').forEach(function (x) {
+          x.classList.toggle('on', x === b);
+          x.setAttribute('aria-pressed', x === b);
+        });
         renderRank();
       });
     });
     $('rank-more').addEventListener('click', function () {
       state.rankExpanded = !state.rankExpanded;
+      savePreferences();
       renderRank();
       if (!state.rankExpanded) $('rank').scrollIntoView();
     });
-    $('table-vendor').addEventListener('change', function (e) { state.tableVendor = e.target.value; renderTable(); });
+    $('table-vendor').addEventListener('change', function (e) { state.tableVendor = e.target.value; savePreferences(); renderTable(); });
+    if ($('model-filter')) {
+      $('model-search').addEventListener('input', renderModelFilter);
+      ['models-select', 'models-clear'].forEach(function (id) {
+        $(id).addEventListener('click', function () {
+          changeModelSelection(matchingFamilies().map(function (m) { return m.family; }), id === 'models-select');
+          renderModelFilter();
+        });
+      });
+      $('models-reset').addEventListener('click', function () {
+        state.selectedFamilies = null;
+        $('model-search').value = '';
+        savePreferences();
+        renderModelFilter();
+        renderAll();
+      });
+    }
     $('cost-zoom').addEventListener('click', openZoom);
     $('zoom-close').addEventListener('click', requestClose);
     document.querySelectorAll('[data-close]').forEach(function (n) { n.addEventListener('click', requestClose); });
@@ -815,17 +952,17 @@
       clearTimeout(t);
       t = setTimeout(function () { renderCost(); if (!$('zoom').hidden) drawZoom(); }, 150);
     });
-    darkMq.addEventListener && darkMq.addEventListener('change', renderAll);
+    darkMq.addEventListener && darkMq.addEventListener('change', function () { renderModelFilter(); renderAll(); });
   }
 
   fetch(UI.dataUrl, { cache: 'no-cache' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (d) {
       DATA = d;
+      restorePreferences();
       renderStats();
-      renderLeader();
-      renderTicker();
       bind();
+      renderModelFilter();
       renderAll();
     })
     .catch(function (err) {

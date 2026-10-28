@@ -21,6 +21,8 @@ h2 { margin: 0 0 6px; font-family: var(--font-head); }
 .h-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .desc { color: var(--ink-2); font-size: 14px; margin: 0 0 14px; }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.empty-state { margin: 0; padding: 24px var(--gutter); color: var(--muted); text-align: center; font-size: 14px; line-height: 1.6; }
+td.empty-state { position: static; max-width: none; border-left: 0; white-space: normal; cursor: default; }
 .count { color: var(--ink-2); font-variant-numeric: tabular-nums; font-family: var(--font-num); }
 .link-btn { color: var(--accent); font-weight: 600; padding: 4px 0; white-space: nowrap; }
 
