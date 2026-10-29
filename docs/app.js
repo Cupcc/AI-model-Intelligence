@@ -585,15 +585,18 @@
 
   function renderTable() {
     var base = scoped();
-    var vendors = vendorCounts(base);
-    var vendor = vendors.some(function (v) { return v.name === state.tableVendor; }) ? state.tableVendor : '';
     var sel = $('table-vendor');
-    clear(sel);
-    sel.appendChild(el('option', { value: '', text: '全部厂商（' + base.length + '）' }));
-    vendors.forEach(function (v) {
-      sel.appendChild(el('option', { value: v.name, text: creatorName(v.name) + '（' + v.count + '）' }));
-    });
-    sel.value = vendor;
+    var vendor = '';
+    if (sel) {
+      var vendors = vendorCounts(base);
+      vendor = vendors.some(function (v) { return v.name === state.tableVendor; }) ? state.tableVendor : '';
+      clear(sel);
+      sel.appendChild(el('option', { value: '', text: '全部厂商（' + base.length + '）' }));
+      vendors.forEach(function (v) {
+        sel.appendChild(el('option', { value: v.name, text: creatorName(v.name) + '（' + v.count + '）' }));
+      });
+      sel.value = vendor;
+    }
 
     var rows = base.filter(function (m) { return !vendor || m.creator === vendor; });
     $('table-count').textContent = rows.length + ' / ' + DATA.models.length;
@@ -942,7 +945,7 @@
       renderRank();
       if (!state.rankExpanded) $('rank').scrollIntoView();
     });
-    $('table-vendor').addEventListener('change', function (e) { state.tableVendor = e.target.value; savePreferences(); renderTable(); });
+    if ($('table-vendor')) $('table-vendor').addEventListener('change', function (e) { state.tableVendor = e.target.value; savePreferences(); renderTable(); });
     if ($('model-filter')) {
       $('model-search').addEventListener('input', renderModelFilter);
       ['models-select', 'models-clear'].forEach(function (id) {

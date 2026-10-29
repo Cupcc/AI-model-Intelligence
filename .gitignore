@@ -3,3 +3,5 @@ screenshots/
 __pycache__/
 .DS_Store
 .backup/
+
+miniprogram/project.private.config.json

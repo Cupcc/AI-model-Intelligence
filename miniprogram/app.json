@@ -1,0 +1,13 @@
+{
+  "pages": ["pages/index/index"],
+  "window": {
+    "navigationBarTitleText": "AI 智力榜",
+    "navigationBarBackgroundColor": "@backgroundColor",
+    "navigationBarTextStyle": "@navigationBarTextStyle",
+    "backgroundColor": "@backgroundColor"
+  },
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

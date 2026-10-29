@@ -1,0 +1,141 @@
+<template name="scatter">
+  <view class="scatter" style="width: {{chart.width}}rpx; height: {{chart.height}}rpx;">
+    <view class="value-area" style="left: {{chart.area.left}}rpx; top: {{chart.area.top}}rpx; width: {{chart.area.width}}rpx; height: {{chart.area.height}}rpx;"></view>
+    <text class="axis-title" style="left: {{chart.left}}rpx; top: 4rpx;">AA 智能指数</text>
+    <view wx:for="{{chart.yTicks}}" wx:key="value" class="y-tick" style="left: {{chart.left}}rpx; top: {{item.top}}rpx; width: {{chart.plotWidth}}rpx;"><text>{{item.value}}</text></view>
+    <view wx:for="{{chart.xTicks}}" wx:key="value" class="x-tick" style="left: {{item.left}}rpx; top: {{chart.top}}rpx; height: {{chart.plotHeight}}rpx;"><text>{{item.value}}</text></view>
+    <view wx:for="{{chart.lines}}" wx:key="id" class="frontier-line {{item.own ? 'own-line' : ''}}" style="left: {{item.left}}rpx; top: {{item.top}}rpx; width: {{item.width}}rpx; border-color: {{item.color}}; transform: rotate({{item.angle}}deg);"></view>
+    <view wx:for="{{chart.points}}" wx:key="slug" class="point-hit {{item.dim ? 'dim' : ''}}" style="left: {{item.left}}rpx; top: {{item.top}}rpx; z-index: {{item.dim ? 2 : 3}};" data-slug="{{item.slug}}" catchtap="showDetail" role="button" aria-label="查看模型详情"><view class="chart-point {{item.frontier ? 'frontier-point' : ''}}" style="width: {{item.size}}rpx; height: {{item.size}}rpx; background: {{item.color}};"></view></view>
+    <text wx:for="{{chart.labels}}" wx:key="slug" class="point-label" style="left: {{item.left}}rpx; top: {{item.top}}rpx; width: {{item.width}}rpx; color: {{item.color}};" data-slug="{{item.slug}}" catchtap="showDetail">{{item.name}}</text>
+    <text class="axis-caption">每任务成本（美元，对数轴） →</text>
+  </view>
+</template>
+
+<template name="vendors">
+  <scroll-view scroll-x class="vendor-scroll" show-scrollbar="{{false}}">
+    <view class="vendor-chips">
+      <view class="vendor-chip {{!costVendor ? 'on' : ''}}" data-name="" bindtap="setCostVendor" role="button">全部 <text class="chip-count">{{costCount}}</text></view>
+      <view wx:for="{{costVendors}}" wx:key="name" class="vendor-chip {{costVendor === item.name ? 'on' : ''}}" data-name="{{item.name}}" bindtap="setCostVendor" role="button"><text class="color-dot" style="background: {{item.color}};"></text>{{item.label}} <text class="chip-count">{{item.count}}</text></view>
+    </view>
+  </scroll-view>
+</template>
+
+<page-meta page-style="background: {{dark ? '#000000' : '#f2f2f7'}}; {{selected || zoomOpen ? 'overflow: hidden;' : ''}}" />
+<view class="app {{dark ? 'dark' : ''}}">
+  <view class="page">
+    <view class="header">
+      <view class="date-title">{{dateTitle}}</view>
+      <view class="title">AI 智力榜</view>
+      <view class="subtitle">看懂模型能力，找到合适的成本。</view>
+    </view>
+
+    <view wx:if="{{leader}}" class="leader card" data-slug="{{leader.slug}}" bindtap="showDetail" hover-class="pressed" role="button" aria-label="查看榜首模型详情">
+      <view class="leader-main">
+        <view class="leader-info"><view class="leader-kicker">{{leader.kicker}}<text class="leader-arrow">↗</text></view><view class="leader-name">{{leader.displayName}}<text wx:if="{{leader.tier && leader.tier !== 'max'}}" class="tier">{{leader.tier}}</text></view><view class="leader-creator"><text class="color-dot" style="background: {{leader.mark}};"></text>{{leader.creatorText}}</view></view>
+        <view class="leader-score">{{leader.score}}</view>
+      </view>
+      <view class="leader-metrics"><view><text class="meta-label">领先第 2 名</text><text class="meta-value lead-value">{{leader.lead}}</text></view><view><text class="meta-label">每任务成本</text><text class="meta-value">{{leader.cost}}</text></view><view><text class="meta-label">发布日期</text><text class="meta-value release-value">{{leader.releaseText}}</text></view></view>
+    </view>
+    <view class="source-note">Artificial Analysis 智能指数 · 非官方中文整理<text class="update-time">更新于 {{updated}}</text></view>
+
+    <view class="sticky-nav">
+      <view class="segmented scope-tabs"><view class="segment {{scope === 'all' ? 'active' : ''}}" data-value="all" bindtap="setScope" role="button">全部 <text>{{allCount}}</text></view><view class="segment {{scope === 'open' ? 'active' : ''}}" data-value="open" bindtap="setScope" role="button">开放权重 <text>{{openCount}}</text></view></view>
+      <view class="section-nav"><view class="section-link {{activeSection === 'rank' ? 'current' : ''}}" data-section="rank" bindtap="goSection" role="button">智能排名</view><view class="section-link {{activeSection === 'cost' ? 'current' : ''}}" data-section="cost" bindtap="goSection" role="button">智能成本</view><view class="section-link {{activeSection === 'table' ? 'current' : ''}}" data-section="table" bindtap="goSection" role="button">多维分析</view></view>
+    </view>
+
+    <view class="card filter-card">
+      <view class="filter-heading" bindtap="toggleFilter" role="button" aria-expanded="{{filterOpen}}"><text>筛选模型</text><view class="filter-state">{{selectedCount}}<text class="disclosure {{filterOpen ? 'expanded' : ''}}">›</text></view></view>
+      <view wx:if="{{filterOpen}}" class="filter-body">
+        <view class="search-wrap"><text class="search-icon">⌕</text><input class="search" placeholder="搜索模型或厂商" placeholder-class="search-placeholder" value="{{query}}" bindinput="search" confirm-type="search" /></view>
+        <view class="filter-actions"><text bindtap="selectFamilies">全选{{query ? '搜索结果' : ''}}</text><text bindtap="clearFamilies">清空{{query ? '搜索结果' : ''}}</text><text bindtap="resetFamilies">恢复全部</text></view>
+        <scroll-view scroll-y class="filter-list" show-scrollbar="{{false}}">
+          <view wx:for="{{families}}" wx:key="name" class="filter-item" data-name="{{item.name}}" bindtap="toggleFamily" role="checkbox" aria-checked="{{item.checked}}"><view class="check {{item.checked ? 'checked' : ''}}">{{item.checked ? '✓' : ''}}</view><view class="filter-model"><text class="filter-name">{{item.name}}</text><text class="filter-creator"><text class="color-dot" style="background: {{item.mark}};"></text>{{item.creator}}</text></view></view>
+          <view wx:if="{{!families.length}}" class="empty">没有找到匹配的模型</view>
+        </scroll-view>
+        <view class="note">{{selectionStatus}}</view><view class="note memory-note">{{preferencesSaved ? '选择会保存在本机，下次打开时恢复。' : '当前无法保存选择，关闭后可能需要重新筛选。'}}同一模型的思考档位合并选择。</view>
+      </view>
+    </view>
+
+    <view id="rank" class="card section-card rank-card">
+      <view class="section-heading"><view class="heading">智能排名</view><text class="section-count">{{total}} 款模型</text></view>
+      <view class="segmented rank-sort"><view class="segment {{rankSort === 'ii' ? 'active' : ''}}" data-value="ii" bindtap="setRankSort" role="button">按分数</view><view class="segment {{rankSort === 'date' ? 'active' : ''}}" data-value="date" bindtap="setRankSort" role="button">按发布时间</view></view>
+      <view wx:if="{{!models.length}}" class="empty"><view class="empty-title">还没有选中的模型</view><view>调整筛选，或恢复全部模型。</view><text class="empty-action" bindtap="resetFamilies">恢复全部</text></view>
+      <view class="rank-list">
+        <view wx:for="{{models}}" wx:key="slug" class="rank-row" data-slug="{{item.slug}}" bindtap="showDetail" hover-class="pressed" role="button" aria-label="{{item.displayName}}，智能指数 {{item.score}}">
+          <text class="rank-number {{item.rank <= 3 ? 'top-rank' : ''}}">{{item.rank}}</text>
+          <view class="rank-info"><view class="model-name">{{item.displayName}}</view><view class="model-sub"><text wx:if="{{item.tier && item.tier !== 'max'}}" class="tier">{{item.tier}}</text>{{item.creatorText}} · {{item.releaseText}}</view></view>
+          <view class="rank-track"><view class="rank-bar" style="width: {{item.barWidth}}%; background: {{item.mark}};"></view><text class="rank-value">{{item.score}}</text></view>
+        </view>
+      </view>
+      <view wx:if="{{rankCount > 10}}" class="more-button" bindtap="toggleRank" role="button">{{rankExpanded ? '收起' : '显示全部 ' + rankCount + ' 名'}} <text>{{rankExpanded ? '⌃' : '⌄'}}</text></view>
+      <view class="note">前 30 名，同一模型保留得分最高的思考档位。点按查看详情。</view>
+    </view>
+
+    <view id="cost" class="card section-card cost-card">
+      <view class="section-heading"><view class="heading">智能成本</view><view class="text-button" bindtap="openZoom" role="button">放大 <text class="expand-icon">⤢</text></view></view>
+      <view class="section-subtitle">越靠左上，越有性价比。</view>
+      <template is="vendors" data="{{costVendor, costCount, costVendors}}" />
+      <view class="legend"><view><text class="legend-area"></text>高性价比区域</view><view><text class="legend-line"></text>{{frontierLabel}}</view><view><view class="legend-sizes"><text></text><text></text></view>点越大越慢</view><view wx:if="{{vendorLabel}}"><text class="legend-line own" style="border-color: {{vendorColor}};"></text>{{vendorLabel}}</view></view>
+      <template wx:if="{{costCount}}" is="scatter" data="{{chart: chart}}" />
+      <view wx:else class="empty">当前没有可绘制的成本数据</view>
+      <view class="note">{{costCount}} 个思考档位有成本数据（共 {{baseCount}}）。横轴为对数刻度，点按圆点查看详情。</view>
+    </view>
+
+    <view id="table" class="card section-card analysis-card">
+      <view class="section-heading"><view class="heading">多维分析</view><text class="section-count">{{tableRows.length}} / {{allCount}}</text></view>
+      <picker range="{{tableVendors}}" range-key="label" value="{{tableVendorIndex}}" bindchange="setTableVendor"><view class="vendor-picker"><text>厂商</text><view>{{tableVendorLabel}}<text class="picker-arrow">⌄</text></view></view></picker>
+      <view class="table-guide">点按列名排序<text>向左滑动查看更多指标 →</text></view>
+      <scroll-view scroll-x scroll-y class="table-scroll" show-scrollbar="{{true}}">
+        <view class="table">
+          <view class="table-row table-head"><view class="table-name {{sortKey === 'short' ? 'sorted' : ''}}" data-key="short" bindtap="sortTable">模型 <text>{{sortKey === 'short' ? (sortDir === 1 ? '↑' : '↓') : '↕'}}</text></view><view wx:for="{{columns}}" wx:key="key" class="table-cell {{sortKey === item.key ? 'sorted' : ''}}" data-key="{{item.key}}" bindtap="sortTable">{{item.label}} <text>{{sortKey === item.key ? (sortDir === 1 ? '↑' : '↓') : '↕'}}</text></view></view>
+          <view wx:for="{{tableRows}}" wx:key="slug" wx:for-item="model" class="table-row" data-slug="{{model.slug}}" bindtap="showDetail" hover-class="pressed"><view class="table-name"><view class="table-color" style="background: {{model.mark}};"></view><view class="table-model-name">{{model.displayName}}</view><view class="table-tags"><text wx:if="{{model.tier && model.tier !== 'max'}}" class="tier">{{model.tier}}</text><text wx:if="{{model.open}}" class="tag open">开放</text><text wx:if="{{model.domestic}}" class="tag domestic">国产</text><text wx:if="{{!model.open && !model.domestic}}" class="table-creator">{{model.creatorText}}</text></view></view><view wx:for="{{model.cells}}" wx:key="key" class="table-cell {{item.key === 'ii' ? 'ii-cell' : ''}} {{item.missing ? 'missing' : ''}}">{{item.value}}</view></view>
+        </view>
+      </scroll-view>
+      <view wx:if="{{!tableRows.length}}" class="empty">当前没有选中的模型，请调整筛选。</view>
+      <view class="note">价格单位为美元 / 百万 tokens。各思考档位单独列出，缺失数据显示 —。</view>
+    </view>
+
+    <view class="card about">
+      <view class="filter-heading" bindtap="toggleAbout"><text>指标说明</text><text class="disclosure {{aboutOpen ? 'expanded' : ''}}">›</text></view>
+      <view wx:if="{{aboutOpen}}" class="definitions">
+        <view><text class="definition-title">AA 智能指数</text><text>Artificial Analysis 综合编程、科学推理、智能体任务、长上下文、知识可靠性等多项独立评测得出的分数，越高代表综合能力越强。</text></view>
+        <view><text class="definition-title">思考档位</text><text>同一模型的不同推理强度，如 max / xhigh / high / low。更高档位通常会增加耗时与成本。</text></view>
+        <view><text class="definition-title">每任务成本</text><text>跑完整套智能指数评测时，平均每道题的 API 费用（美元），同时反映单价和推理用量。</text></view>
+        <view><text class="definition-title">高性价比区域</text><text>每任务成本低于中位数、智能指数高于中位数的区域。</text></view>
+        <view><text class="definition-title">最优前沿</text><text>在同等或更低成本下，没有其他模型获得更高智能指数。筛选模型后，前沿根据所选模型重新计算；厂商聚焦会额外显示自身前沿。</text></view>
+        <view><text class="definition-title">输出速率</text><text>开始输出后每秒生成的 token 数（中位数）。</text></view>
+        <view><text class="definition-title">首字延迟</text><text>从发出请求到收到第一个 token 的时间。推理模型通常会先思考。</text></view>
+        <view><text class="definition-title">总响应时间</text><text>一次典型请求从发出到完整返回的时间。成本图的点越大，代表响应越慢。</text></view>
+        <view><text class="definition-title">知识可靠性</text><text>AA-Omniscience 指数：答对加分、答错扣分、承认不知道不扣分，衡量模型回答知识问题时的可靠程度。</text></view>
+      </view>
+    </view>
+    <view class="footer">数据来自 Artificial Analysis，版权归原作者所有。<text>数据更新于 {{updated}}</text></view>
+  </view>
+
+  <view wx:if="{{zoomOpen}}" class="zoom-layer" catchtouchmove="stopTap">
+    <view class="zoom-header"><view class="zoom-title">智能成本<text>左右滑动 · 点按模型查看详情</text></view><view class="zoom-done" bindtap="closeZoom" role="button">完成</view></view>
+    <view class="zoom-vendors"><template is="vendors" data="{{costVendor, costCount, costVendors}}" /></view>
+    <scroll-view scroll-x scroll-y class="zoom-scroll"><view class="zoom-chart"><template wx:if="{{costCount}}" is="scatter" data="{{chart: zoomChart}}" /><view wx:else class="empty">当前没有可绘制的成本数据</view></view></scroll-view>
+    <view class="zoom-note">{{frontierLabel}} · 点越大，总响应时间越长</view>
+  </view>
+
+  <view wx:if="{{selected}}" class="overlay" bindtap="closeDetail" catchtouchmove="stopTap">
+    <view class="sheet" catchtap="stopTap">
+      <view class="sheet-bar"><view class="sheet-handle"></view><view class="sheet-close" bindtap="closeDetail" role="button" aria-label="关闭详情">×</view></view>
+      <scroll-view scroll-y class="detail-scroll" scroll-top="{{detailScrollTop}}" show-scrollbar="{{false}}">
+        <view class="detail-body">
+          <view class="detail-creator"><text class="color-dot" style="background: {{selected.mark}};"></text>{{selected.creatorText}}</view>
+          <view class="detail-title">{{selected.displayName}}<text wx:if="{{selected.tier && selected.tier !== 'max'}}" class="tier">{{selected.tier}}</text></view>
+          <view class="detail-tags"><text class="tag {{selected.open ? 'open' : ''}}">{{selected.open ? '开放权重' : '闭源'}}</text><text wx:if="{{selected.reasoning}}" class="tag">推理模型</text><text wx:if="{{selected.domestic}}" class="tag domestic">国产</text></view>
+          <view class="detail-hero"><text class="detail-score">{{selected.score}}</text><view>AA 智能指数<text>全部思考档位第 {{selected.globalRank}} 名 / 共 {{selected.globalTotal}}</text></view></view>
+          <view class="detail-grid"><view wx:for="{{selected.metrics}}" wx:key="key" class="detail-metric"><text>{{item.label}}</text><view>{{item.value}}</view></view></view>
+          <view wx:if="{{selected.scores.length}}" class="detail-heading">各项评测<text>{{selected.scores.length}} 项</text></view>
+          <view class="benchmarks"><view wx:for="{{selected.scores}}" wx:key="key" class="benchmark"><view class="benchmark-heading"><text>{{item.name}}</text><text class="benchmark-value">{{item.value}}</text></view><view wx:if="{{item.percentage}}" class="benchmark-track"><view style="width: {{item.width}}%;"></view></view></view></view>
+          <view wx:if="{{selected.scores.length}}" class="note detail-note">百分比为正确率 / 通过率；“分”为 Elo 类相对评分，越高越好。</view>
+          <view class="source-button" bindtap="copySource">复制 Artificial Analysis 原页链接 ↗</view>
+          <view class="note detail-note">价格为 API 标价，实际费用取决于用量。</view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>
