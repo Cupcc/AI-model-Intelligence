@@ -41,6 +41,10 @@
 .release-value { font-size: 25rpx; line-height: 44rpx; }
 .source-note { margin: 16rpx 16rpx 12rpx; color: var(--muted); font-size: 21rpx; line-height: 1.65; }
 .update-time { display: block; }
+.data-status { display: inline-block; margin-top: 8rpx; padding: 5rpx 12rpx; border-radius: 999rpx; background: var(--chip); color: var(--accent); }
+.data-status.loading { color: var(--muted); }
+.data-status.cached { color: var(--secondary); }
+.data-status.success { color: var(--green); background: var(--green-tint); }
 .sticky-nav { position: sticky; top: 0; z-index: 20; margin: 0 -32rpx 20rpx; padding: 18rpx 32rpx 0; background: var(--glass); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
 .segmented { display: flex; background: var(--chip); border-radius: 999rpx; padding: 4rpx; }
 .segment { flex: 1; text-align: center; font-size: 27rpx; line-height: 1.4; padding: 14rpx 8rpx; color: var(--secondary); border-radius: 999rpx; }

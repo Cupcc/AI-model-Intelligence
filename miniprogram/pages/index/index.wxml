@@ -36,7 +36,7 @@
       </view>
       <view class="leader-metrics"><view><text class="meta-label">领先第 2 名</text><text class="meta-value lead-value">{{leader.lead}}</text></view><view><text class="meta-label">每任务成本</text><text class="meta-value">{{leader.cost}}</text></view><view><text class="meta-label">发布日期</text><text class="meta-value release-value">{{leader.releaseText}}</text></view></view>
     </view>
-    <view class="source-note">Artificial Analysis 智能指数 · 非官方中文整理<text class="update-time">更新于 {{updated}}</text></view>
+    <view class="source-note">Artificial Analysis 智能指数 · 非官方中文整理<text class="update-time">更新于 {{updated}} · {{dataSource}}</text><text class="data-status {{dataStatusTone}}" bindtap="refreshData" role="button" aria-label="刷新线上数据">{{dataStatus}}</text></view>
 
     <view class="sticky-nav">
       <view class="segmented scope-tabs"><view class="segment {{scope === 'all' ? 'active' : ''}}" data-value="all" bindtap="setScope" role="button">全部 <text>{{allCount}}</text></view><view class="segment {{scope === 'open' ? 'active' : ''}}" data-value="open" bindtap="setScope" role="button">开放权重 <text>{{openCount}}</text></view></view>

@@ -1,7 +1,9 @@
 const bundled = require('../../data/models.js')
+const config = require('../../config')
 const analysis = require('../../utils/analysis')
 const { columns, finite, familyName, format, viewModel, bestFamilies, vendorCounts, scatter, detail } = analysis
 const STORE = 'ai-intelligence-mini.preferences.v1'
+const DATA_STORE = 'ai-intelligence-mini.dataset.v1'
 const SECTIONS = ['rank', 'cost', 'table']
 
 function dateLabels(value) {
@@ -15,6 +17,11 @@ function dateLabels(value) {
   }
 }
 
+function validDataset(value) {
+  return !!(value && typeof value === 'object' && value.benchmarks && typeof value.benchmarks === 'object' && Array.isArray(value.models) && value.models.length &&
+    value.models.every(model => model && typeof model.slug === 'string' && typeof model.name === 'string'))
+}
+
 Page({
   data: {
     scope: 'all', rankSort: 'ii', rankExpanded: false, costVendor: '', tableVendor: '',
@@ -22,6 +29,7 @@ Page({
     dark: false, models: [], families: [], leader: null, total: 0, rankCount: 0,
     allCount: bundled.models.length, openCount: bundled.models.filter(m => m.open).length,
     ...dateLabels(bundled.generatedAt), selected: null, detailScrollTop: 0,
+    dataStatus: '正在检查更新…', dataStatusTone: 'loading', dataSource: '内置快照',
     tableRows: [], columns, sortKey: 'ii', sortDir: -1,
     chart: {}, zoomChart: {}, zoomOpen: false, costCount: 0,
     costVendors: [], tableVendors: [], tableVendorIndex: 0, tableVendorLabel: '全部厂商',
@@ -30,6 +38,7 @@ Page({
   },
   onLoad() {
     this.dataset = bundled
+    this.hasLoaded = true
     try {
       const saved = wx.getStorageSync(STORE)
       if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
@@ -55,7 +64,13 @@ Page({
     }
     if (wx.onThemeChange) wx.onThemeChange(this.themeListener)
     this.refresh()
+    this.loadCachedDataset()
+    this.loadRemoteData(false)
   },
+  onShow() {
+    if (this.hasLoaded && (!this.lastRemoteCheck || Date.now() - this.lastRemoteCheck > config.refreshInterval)) this.loadRemoteData(false)
+  },
+  onPullDownRefresh() { this.loadRemoteData(true) },
   onReady() { this.measureSections() },
   onUnload() {
     if (wx.offThemeChange && this.themeListener) wx.offThemeChange(this.themeListener)
@@ -126,6 +141,70 @@ Page({
     }
     if (this.data.zoomOpen) patch.zoomChart = scatter(costModels, costVendor, 1320, 1020, dark, true)
     this.setData(patch, () => this.scheduleMeasure())
+  },
+  applyDataset(dataset, source) {
+    if (!validDataset(dataset)) return false
+    this.dataset = dataset
+    const labels = dateLabels(dataset.generatedAt)
+    const patch = Object.assign({}, labels, {
+      allCount: dataset.models.length,
+      openCount: dataset.models.filter(m => m.open).length,
+      dataSource: source,
+      dataStatus: source === '在线数据' ? '已同步 · 点击刷新' : '已使用缓存 · 点击刷新',
+      dataStatusTone: source === '在线数据' ? 'success' : 'cached'
+    })
+    this.setData(patch)
+    this.refresh()
+    if (this.data.selected) {
+      const current = dataset.models.find(model => model.slug === this.data.selected.slug)
+      if (current) this.openModel(current.slug)
+      else this.closeDetail()
+    }
+    return true
+  },
+  loadCachedDataset() {
+    try {
+      const cached = wx.getStorageSync(DATA_STORE)
+      if (validDataset(cached)) this.applyDataset(cached, '本机缓存')
+    } catch (_) {}
+  },
+  refreshData() { this.loadRemoteData(true) },
+  loadRemoteData(force) {
+    if (this.remoteLoading || !config.dataUrl) {
+      wx.stopPullDownRefresh && wx.stopPullDownRefresh()
+      return
+    }
+    this.remoteLoading = true
+    this.lastRemoteCheck = Date.now()
+    this.setData({ dataStatus: '正在同步最新数据…', dataStatusTone: 'loading' })
+    const separator = config.dataUrl.includes('?') ? '&' : '?'
+    wx.request({
+      url: config.dataUrl + separator + 't=' + Date.now(),
+      method: 'GET',
+      dataType: 'json',
+      timeout: config.requestTimeout,
+      header: { 'Cache-Control': 'no-cache' },
+      success: response => {
+        const dataset = response && response.statusCode === 200 ? response.data : null
+        if (!validDataset(dataset)) {
+          this.setData({ dataStatus: '数据格式异常 · 使用现有数据', dataStatusTone: 'cached' })
+          return
+        }
+        try { wx.setStorageSync(DATA_STORE, dataset) } catch (_) {}
+        this.applyDataset(dataset, '在线数据')
+      },
+      fail: () => {
+        const hasCache = this.data.dataSource === '本机缓存'
+        this.setData({
+          dataStatus: hasCache ? '网络不可用 · 使用缓存' : '网络不可用 · 使用内置快照',
+          dataStatusTone: 'cached'
+        })
+      },
+      complete: () => {
+        this.remoteLoading = false
+        wx.stopPullDownRefresh && wx.stopPullDownRefresh()
+      }
+    })
   },
   scheduleMeasure() {
     clearTimeout(this.sectionTimer)

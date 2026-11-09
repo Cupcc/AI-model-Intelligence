@@ -6,6 +6,8 @@
     "navigationBarTextStyle": "@navigationBarTextStyle",
     "backgroundColor": "@backgroundColor"
   },
+  "enablePullDownRefresh": true,
+  "networkTimeout": { "request": 10000 },
   "darkmode": true,
   "themeLocation": "theme.json",
   "style": "v2",
