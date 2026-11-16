@@ -14,7 +14,7 @@
   <link rel="icon" href="favicon.ico?v=20261029" sizes="any">
   <link rel="icon" href="favicon.svg?v=20261029" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261029" sizes="180x180">
-  <link rel="stylesheet" href="style.css?v=bafdf46a">
+  <link rel="stylesheet" href="style.css?v=cc171fe0">
 </head>
 <body>
   <div class="overview wrap">
@@ -112,7 +112,7 @@
           <dt>每任务成本</dt><dd>跑完整套智能指数评测时，平均每道题花费的 API 费用（美元）。它同时反映了单价和模型“想得多不多”。</dd>
           <dt>高性价比区域</dt><dd>每任务成本低于中位数、智能指数高于中位数的区域。</dd>
           <dt>全局最优前沿</dt><dd>帕累托前沿：在同等或更低成本下，没有别的模型比它更聪明。</dd>
-          <dt>输出速度</dt><dd>开始输出后每秒生成的 token 数（中位数）。</dd>
+          <dt>输出速度</dt><dd>开始输出后每秒生成的 token 数，按 AA 当前性能统计口径展示。</dd>
           <dt>首字延迟</dt><dd>从发出请求到收到第一个 token 的时间。推理模型会先“思考”，所以通常更长。</dd>
           <dt>总响应时间</dt><dd>一次典型请求从发出到完整返回的时间。散点图里点越大，总响应时间越长。</dd>
           <dt>知识可靠性</dt><dd>AA-Omniscience 指数：答对加分、答错扣分、承认不知道不扣分，衡量模型会不会“一本正经地胡说”。</dd>
@@ -158,6 +158,6 @@
       moreText: function (open, n) { return open ? '收起' : '显示全部 ' + n + ' 名'; }
     };
   </script>
-  <script src="app.js?v=20261029-model-filter"></script>
+  <script src="app.js?v=cc171fe0"></script>
 </body>
 </html>

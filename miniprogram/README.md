@@ -10,7 +10,7 @@
 
 小程序现在采用「在线数据优先、内置快照兜底」：启动和回到前台时会请求 `config.js` 中的 HTTPS `dataUrl`，成功后写入本机缓存；网络不可用时继续使用最近一次缓存或随包快照。页面底部的同步状态可点击手动刷新，下拉页面也会强制刷新。
 
-数据源仍由 GitHub Actions 每 6 小时更新 `docs/data.json`。生成随包快照：
+数据源由 GitHub Actions 每 6 小时更新 `docs/data.json`，同时同步随包快照。手动生成随包快照：
 
 ```sh
 python3 scripts/sync_miniprogram_data.py
@@ -25,7 +25,11 @@ python3 scripts/sync_miniprogram_data.py
 3. 微信开发者工具中勾选「不校验合法域名」仅用于本地调试，正式版不能依赖此选项。
 4. 发布后，Actions 生成的新 `docs/data.json` 会被已发布版本在下一次启动、回到前台或手动刷新时读取，不需要重新审核；只有修改小程序代码、域名或权限时才需要重新发布。
 
-如果更换 GitHub 用户名、仓库名或数据托管地址，必须同步修改 `config.js` 并重新上传审核。远程响应必须保持与 `docs/data.json` 相同的数据结构（至少包含非空 `models` 数组，每项包含 `slug` 和 `name`）。
+如果更换 GitHub 用户名、仓库名或数据托管地址，必须同步修改 `config.js` 并重新上传审核。远程响应必须保持与 `docs/data.json` 相同的数据结构，包含有效的 `generatedAt` 时间、`benchmarks` 对象以及非空 `models` 数组，每项包含 `slug` 和 `name`。
+
+小程序比较 `generatedAt`，不会让旧缓存或旧线上响应覆盖更新的数据。刷新失败后，下次回到前台会再次尝试。页面分别显示域名配置错误、HTTP 错误、格式异常和旧数据响应，失败时保留正在展示的数据。
+
+排查无法更新时，先查看 Actions 最近一次运行和线上 JSON 的 `generatedAt`，再查看小程序底部的错误。开发者工具中能请求成功不代表正式版的合法域名已配置；需要在保留域名校验的情况下验证，并用真机确认网络可达性。
 
 ## 上线
 

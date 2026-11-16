@@ -103,7 +103,7 @@
         <view><text class="definition-title">每任务成本</text><text>跑完整套智能指数评测时，平均每道题的 API 费用（美元），同时反映单价和推理用量。</text></view>
         <view><text class="definition-title">高性价比区域</text><text>每任务成本低于中位数、智能指数高于中位数的区域。</text></view>
         <view><text class="definition-title">最优前沿</text><text>在同等或更低成本下，没有其他模型获得更高智能指数。筛选模型后，前沿根据所选模型重新计算；厂商聚焦会额外显示自身前沿。</text></view>
-        <view><text class="definition-title">输出速率</text><text>开始输出后每秒生成的 token 数（中位数）。</text></view>
+        <view><text class="definition-title">输出速率</text><text>开始输出后每秒生成的 token 数，按 AA 当前性能统计口径展示。</text></view>
         <view><text class="definition-title">首字延迟</text><text>从发出请求到收到第一个 token 的时间。推理模型通常会先思考。</text></view>
         <view><text class="definition-title">总响应时间</text><text>一次典型请求从发出到完整返回的时间。成本图的点越大，代表响应越慢。</text></view>
         <view><text class="definition-title">知识可靠性</text><text>AA-Omniscience 指数：答对加分、答错扣分、承认不知道不扣分，衡量模型回答知识问题时的可靠程度。</text></view>

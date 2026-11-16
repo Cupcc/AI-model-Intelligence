@@ -4,7 +4,7 @@
 数据来源：
 1. 官网榜单页 (artificialanalysis.ai/leaderboards/models) 内嵌的数据：
    智能指数、开放权重、厂商颜色、每任务成本、速度、各项评测分数。
-2. 官方 API (/api/v2/data/llms/models)：补充发布日期；页面抓取失败时也用它更新分数和价格。
+2. 官方 API (/api/v2/language/models/free)：补充发布日期；页面抓取失败时也用它更新分数和价格。
 
 只用 Python 标准库，本地和 GitHub Actions 都能直接跑：
     AA_API_KEY=xxx python3 scripts/build_data.py
@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "data.json"
 PAGE_URL = "https://artificialanalysis.ai/leaderboards/models"
-API_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
+API_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/140.0 Safari/537.36"
@@ -48,6 +48,27 @@ def http_get(url, headers=None, timeout=60):
         return r.read().decode("utf-8")
 
 
+def fetch_api(key):
+    models = {}
+    page = 1
+    while True:
+        raw = json.loads(http_get(f"{API_URL}?page={page}", {"x-api-key": key}))
+        batch = raw["data"]
+        pagination = raw["pagination"]
+        if (not isinstance(batch, list) or pagination["page"] != page
+                or not isinstance(pagination["has_more"], bool)):
+            raise ValueError("API 分页响应异常")
+        for model in batch:
+            if not all(isinstance(model.get(field), str) and model[field] for field in ("id", "name")):
+                raise ValueError("API 模型标识异常")
+            models[model["id"]] = model
+        if not pagination["has_more"]:
+            return models
+        if not batch or page >= 10000:
+            raise ValueError("API 分页未结束")
+        page += 1
+
+
 # ---------- 官网页面 ----------
 
 def parse_page(html):
@@ -55,18 +76,26 @@ def parse_page(html):
     chunks = re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', html, re.S)
     text = "".join(json.loads('"' + c + '"') for c in chunks)
     dec = json.JSONDecoder()
-    models, benches = {}, {}
-    for m in re.finditer(r'\{"slug":"', text):
+    models, benches, releases = {}, {}, {}
+    for m in re.finditer(r'\{', text):
         try:
             obj, _ = dec.raw_decode(text, m.start())
         except ValueError:
             continue
-        if "isOpenWeights" in obj:
-            prev = models.get(obj["slug"])
+        if "isOpenWeights" in obj and isinstance(obj.get("name"), str):
+            identity = obj.get("id") or obj.get("slug")
+            if not identity:
+                continue
+            obj["slug"] = identity
+            prev = models.get(identity)
             if prev is None or len(obj) > len(prev):
-                models[obj["slug"]] = obj
-        elif "keywords" in obj and isinstance(obj.get("name"), str):
+                models[identity] = obj
+        elif "keywords" in obj and isinstance(obj.get("name"), str) and obj.get("slug"):
             benches.setdefault(obj["slug"], obj["name"])
+        elif obj.get("releaseDate") and obj.get("slug"):
+            releases[obj["slug"]] = obj["releaseDate"]
+    for model in models.values():
+        model["releaseDate"] = releases.get((model.get("release") or {}).get("slug"))
     return models, benches
 
 
@@ -95,6 +124,7 @@ def build_record(p, release_dates):
     scores = {k: rnd(v) for k, v in (p.get("scores") or {}).items() if v is not None}
     return {
         "slug": p["slug"],
+        "releaseSlug": (p.get("release") or {}).get("slug", p["slug"]),
         "name": p["name"],
         "short": short,
         "family": family,
@@ -108,12 +138,12 @@ def build_record(p, release_dates):
         "priceIn": rnd(p.get("price1mInputTokens")),
         "priceOut": rnd(p.get("price1mOutputTokens")),
         "priceCache": rnd(p.get("cacheHitPrice")),
-        "tps": rnd(p.get("medianOutputTokensPerSecond"), 1),
-        "ttft": rnd(p.get("medianTimeToFirstTokenSeconds"), 2),
-        "ttfa": rnd(p.get("medianTimeToFirstAnswerTokenSeconds"), 2),
+        "tps": rnd(p.get("outputSpeed", p.get("medianOutputTokensPerSecond")), 1),
+        "ttft": rnd(p.get("timeToFirstToken", p.get("medianTimeToFirstTokenSeconds")), 2),
+        "ttfa": rnd(p.get("timeToFirstAnswerToken", p.get("medianTimeToFirstAnswerTokenSeconds")), 2),
         "e2e": rnd(p.get("medianEndToEndResponseTimeSeconds"), 1),
         "ctx": p.get("contextWindowTokens"),
-        "release": release_dates.get(p["slug"]),
+        "release": p.get("releaseDate") or release_dates.get(p["slug"]) or release_dates.get(p["name"]),
         "scores": scores,
     }
 
@@ -126,18 +156,19 @@ def main():
     api = {}
     if key:
         try:
-            raw = json.loads(http_get(API_URL, {"x-api-key": key}))
-            api = {m["slug"]: m for m in raw.get("data", [])}
+            api = fetch_api(key)
             log(f"API: {len(api)} 个模型")
         except Exception as e:  # noqa: BLE001
             log(f"API 请求失败: {e}")
     else:
         log("未设置 AA_API_KEY，跳过 API")
 
-    release_dates = {s: m.get("release_date") for s, m in api.items() if m.get("release_date")}
+    release_dates = {identifier: m["release_date"] for m in api.values()
+                     if m.get("release_date") for identifier in (m["id"], m["name"])}
     if previous:  # API 失败时沿用旧的发布日期
         for m in previous["models"]:
             release_dates.setdefault(m["slug"], m.get("release"))
+            release_dates.setdefault(m["name"], m.get("release"))
 
     # 2) 官网页面：主数据
     page_models, benches = {}, {}
@@ -159,27 +190,49 @@ def main():
     elif previous and api:
         # 页面拿不到：沿用旧数据，用 API 刷新分数、价格、速度
         log("页面数据不可用，沿用旧数据并用 API 刷新")
-        models, total_listed, benches = previous["models"], previous["totalListed"], previous["benchmarks"]
+        models = [dict(m) for m in previous["models"]]
+        total_listed, benches = previous["totalListed"], previous["benchmarks"]
+        api_by_name = {m["name"]: m for m in api.values()}
+        matched = 0
         for m in models:
-            a = api.get(m["slug"])
+            a = api.get(m["slug"]) or api_by_name.get(m["name"])
             if not a:
                 continue
+            matched += 1
             ev, pr = a.get("evaluations") or {}, a.get("pricing") or {}
-            if ev.get("artificial_analysis_intelligence_index") is not None:
+            if "artificial_analysis_intelligence_index" in ev:
                 m["ii"] = rnd(ev["artificial_analysis_intelligence_index"], 2)
-            m["priceIn"] = rnd(pr.get("price_1m_input_tokens"))
-            m["priceOut"] = rnd(pr.get("price_1m_output_tokens"))
-            m["tps"] = rnd(a.get("median_output_tokens_per_second"), 1) or m["tps"]
+            for target, field in (("priceIn", "price_1m_input_tokens"),
+                                  ("priceOut", "price_1m_output_tokens"),
+                                  ("priceCache", "price_1m_cache_hit_tokens")):
+                if field in pr:
+                    m[target] = rnd(pr[field])
+            performance = a.get("performance_v3") or {}
+            for target, field, digits in (("tps", "mean_output_tokens_per_second", 1),
+                                          ("ttft", "mean_time_to_first_token_seconds", 2),
+                                          ("ttfa", "mean_time_to_first_answer_token_seconds", 2)):
+                if field in performance:
+                    m[target] = rnd(performance[field], digits)
+            cost = (a.get("artificial_analysis_intelligence_index_cost") or {}).get("cost_per_task") or {}
+            if "total_cost" in cost:
+                m["costTask"] = rnd(cost["total_cost"])
             m["release"] = a.get("release_date") or m.get("release")
+        if not matched:
+            log("API 没有匹配到现有模型，保留现有 data.json 不变")
+            sys.exit(1)
         source = "api"
     else:
         log("页面和 API 都不可用，保留现有 data.json 不变")
         sys.exit(1)
 
+    if not models or not any(m["ii"] is not None for m in models):
+        log("没有有效智能指数，保留现有 data.json 不变")
+        sys.exit(1)
     models.sort(key=lambda m: -(m["ii"] or 0))
     used = {k for m in models for k in m["scores"]}
     benches = {k: v for k, v in benches.items() if k in used}
-    if previous and previous.get("models") == models and previous.get("benchmarks") == benches:
+    if (previous and previous.get("models") == models and previous.get("benchmarks") == benches
+            and previous.get("totalListed") == total_listed and previous.get("source") == source):
         log("数据没有变化，不改写 data.json")
         return
     data = {

@@ -698,7 +698,7 @@
     });
     body.appendChild(el('p', { class: 'hint', text: '百分比为正确率 / 通过率；“分”为 Elo 类相对评分，越高越好。' }));
     body.appendChild(el('a', {
-      class: 'd-link', href: 'https://artificialanalysis.ai/models/' + encodeURIComponent(m.slug),
+      class: 'd-link', href: 'https://artificialanalysis.ai/models/' + encodeURIComponent(m.releaseSlug || m.slug),
       target: '_blank', rel: 'noopener', text: '在 Artificial Analysis 查看英文原页 →'
     }));
     var sheet = $('sheet');

@@ -41,7 +41,9 @@ design/               6 套 UI 方案（见 design/README.md）
 ## 数据来源
 
 1. AA 官网榜单页 `artificialanalysis.ai/leaderboards/models` 内嵌的数据：智能指数、开放权重、厂商颜色、每任务成本、速度、各项评测
-2. AA 官方 API `/api/v2/data/llms/models`：补发布日期；官网页面抓取失败时，用它刷新分数和价格，其余字段沿用上一次的数据
+2. AA 官方 API `/api/v2/language/models/free`：读取全部分页，补发布日期；官网页面抓取失败时，用它刷新已收录模型的分数、价格和性能，其余字段沿用上一次的数据。旧 `/api/v2/data/*` 已停用，见 [AA 迁移说明](https://artificialanalysis.ai/data-api/migrate-v2-data)。
+
+模型档位以 AA 模型 ID 区分，原页链接使用 `releaseSlug`。页面不再提供旧口径的总响应时间时，该指标显示为空，不以每任务耗时替代。两个数据源都不可用时，脚本报错并保留原文件，不伪造更新时间。
 
 ## 本地运行
 
@@ -50,6 +52,15 @@ design/               6 套 UI 方案（见 design/README.md）
 python3 scripts/build_data.py              # 生成 docs/data.json
 python3 -m http.server 8000 -d docs        # 打开 http://localhost:8000
 ```
+
+运行回归测试：
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py'
+node --test tests/*.test.js
+```
+
+更新工作流先运行测试，再抓取数据并同步 `miniprogram/data/models.js`。随包快照的更新不会替换已发布的小程序代码包。
 
 ## 部署到 GitHub Pages
 

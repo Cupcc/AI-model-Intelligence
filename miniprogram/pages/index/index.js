@@ -18,7 +18,8 @@ function dateLabels(value) {
 }
 
 function validDataset(value) {
-  return !!(value && typeof value === 'object' && value.benchmarks && typeof value.benchmarks === 'object' && Array.isArray(value.models) && value.models.length &&
+  return !!(value && typeof value === 'object' && typeof value.generatedAt === 'string' && Number.isFinite(Date.parse(value.generatedAt)) &&
+    value.benchmarks && typeof value.benchmarks === 'object' && !Array.isArray(value.benchmarks) && Array.isArray(value.models) && value.models.length &&
     value.models.every(model => model && typeof model.slug === 'string' && typeof model.name === 'string'))
 }
 
@@ -143,7 +144,7 @@ Page({
     this.setData(patch, () => this.scheduleMeasure())
   },
   applyDataset(dataset, source) {
-    if (!validDataset(dataset)) return false
+    if (!validDataset(dataset) || Date.parse(dataset.generatedAt) < Date.parse(this.dataset.generatedAt)) return false
     this.dataset = dataset
     const labels = dateLabels(dataset.generatedAt)
     const patch = Object.assign({}, labels, {
@@ -175,7 +176,7 @@ Page({
       return
     }
     this.remoteLoading = true
-    this.lastRemoteCheck = Date.now()
+    this.lastRemoteCheck = 0
     this.setData({ dataStatus: '正在同步最新数据…', dataStatusTone: 'loading' })
     const separator = config.dataUrl.includes('?') ? '&' : '?'
     wx.request({
@@ -185,18 +186,26 @@ Page({
       timeout: config.requestTimeout,
       header: { 'Cache-Control': 'no-cache' },
       success: response => {
-        const dataset = response && response.statusCode === 200 ? response.data : null
+        if (!response || response.statusCode !== 200) {
+          this.setData({ dataStatus: '服务异常 HTTP ' + (response ? response.statusCode : '未知') + ' · 保留现有数据', dataStatusTone: 'cached' })
+          return
+        }
+        const dataset = response.data
         if (!validDataset(dataset)) {
           this.setData({ dataStatus: '数据格式异常 · 使用现有数据', dataStatusTone: 'cached' })
           return
         }
+        if (!this.applyDataset(dataset, '在线数据')) {
+          this.setData({ dataStatus: '线上数据较旧 · 保留现有数据', dataStatusTone: 'cached' })
+          return
+        }
+        this.lastRemoteCheck = Date.now()
         try { wx.setStorageSync(DATA_STORE, dataset) } catch (_) {}
-        this.applyDataset(dataset, '在线数据')
       },
-      fail: () => {
-        const hasCache = this.data.dataSource === '本机缓存'
+      fail: error => {
+        const domainError = /domain list|合法域名/i.test(error && error.errMsg || '')
         this.setData({
-          dataStatus: hasCache ? '网络不可用 · 使用缓存' : '网络不可用 · 使用内置快照',
+          dataStatus: domainError ? '请求域名未配置 · 请检查 request 合法域名' : '网络不可用 · 保留现有数据',
           dataStatusTone: 'cached'
         })
       },
@@ -275,7 +284,7 @@ Page({
   },
   closeDetail() { this.setData({ selected: null }) },
   copySource() {
-    if (this.data.selected) wx.setClipboardData({ data: 'https://artificialanalysis.ai/models/' + encodeURIComponent(this.data.selected.slug) })
+    if (this.data.selected) wx.setClipboardData({ data: 'https://artificialanalysis.ai/models/' + encodeURIComponent(this.data.selected.releaseSlug || this.data.selected.slug) })
   },
   toggleAbout() { this.setData({ aboutOpen: !this.data.aboutOpen }) },
   onShareAppMessage() { return { title: 'AI 智力榜 · 看懂模型能力与成本', path: '/pages/index/index' } },
